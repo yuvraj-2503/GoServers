@@ -19,7 +19,6 @@ func NewMongoUserStore(collection *mongo.Collection) *MongoUserStore {
 func (u *MongoUserStore) Insert(ctx *context.Context, user *User) error {
 	_, err := u.userColl.InsertOne(*ctx, user)
 	if err != nil {
-		// check for duplicate
 		if mongo.IsDuplicateKeyError(err) {
 			return &common.AlreadyExistsError{Message: "User already exists"}
 		}
@@ -86,18 +85,24 @@ func (u *MongoUserStore) UpdatePhoneNumber(ctx *context.Context, userId string, 
 
 func (u *MongoUserStore) DeleteByUserId(ctx *context.Context, userId string) error {
 	filter := bson.D{{Key: "userId", Value: userId}}
-	_, err := u.userColl.DeleteOne(*ctx, filter)
+	deleteResult, err := u.userColl.DeleteOne(*ctx, filter)
 	if err != nil {
 		return err
+	}
+	if deleteResult.DeletedCount == 0 {
+		return &common.NotFoundError{Message: "User not found"}
 	}
 	return nil
 }
 
 func (u *MongoUserStore) Delete(ctx *context.Context, filter Filter) error {
 	bsonFilter := createBsonFilter(filter)
-	_, err := u.userColl.DeleteOne(*ctx, bsonFilter)
+	deleteResult, err := u.userColl.DeleteOne(*ctx, bsonFilter)
 	if err != nil {
 		return err
+	}
+	if deleteResult.DeletedCount == 0 {
+		return &common.NotFoundError{Message: "User not found"}
 	}
 	return nil
 }

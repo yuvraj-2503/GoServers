@@ -2,32 +2,37 @@ package service
 
 import (
 	"context"
+	otpCommon "otp-manager/common"
+	"otp-manager/otp"
 	"user-server/common"
 	"user-server/db"
 )
 
 type SignUpManager interface {
-	SendEmailOtp(ctx *context.Context, emailId string) error
+	SendEmailOtp(ctx *context.Context, emailId string) (*string, error)
 }
 
 type MongoSignupManager struct {
-	userStore db.UserStore
+	userStore       db.UserStore
+	emailOtpManager otp.OtpManager
 }
 
-func NewMongoSignupManager(userStore db.UserStore) *MongoSignupManager {
+func NewMongoSignupManager(userStore db.UserStore,
+	emailOtpManager otp.OtpManager) *MongoSignupManager {
 	return &MongoSignupManager{
-		userStore: userStore,
+		userStore:       userStore,
+		emailOtpManager: emailOtpManager,
 	}
 }
 
-func (m *MongoSignupManager) SendEmailOtp(ctx *context.Context, emailId string) error {
+func (m *MongoSignupManager) SendEmailOtp(ctx *context.Context, emailId string) (*string, error) {
 	result, _ := m.userStore.CheckExists(ctx, db.Filter{
 		Key:   db.EmailId,
 		Value: emailId,
 	})
 
 	if result {
-		return &common.AlreadyExistsError{Message: "Email already registered"}
+		return nil, &common.AlreadyExistsError{Message: "Email already registered"}
 	}
-	return nil
+	return m.emailOtpManager.Send(ctx, &otpCommon.Contact{EmailId: emailId})
 }

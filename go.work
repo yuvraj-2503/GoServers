@@ -4,4 +4,5 @@ use (
 	mongo-utils
 	user-server
 	otp-manager
+	token-manager
 )

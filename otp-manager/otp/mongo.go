@@ -68,3 +68,16 @@ func (store *MongoOTPStore) Get(ctx *context.Context, sessionId string) (*common
 	}
 	return &otp, nil
 }
+
+func (store *MongoOTPStore) UpdateRetryCount(ctx *context.Context, sessionId string) error {
+	filter := bson.D{{Key: "sessionId", Value: sessionId}}
+	updates := bson.D{{"$inc", bson.D{{"retries", 1}}}}
+	_, err := store.Collection.UpdateOne(*ctx, filter, updates)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return &otpErrors.OtpDoesNotExistError{}
+		}
+		return err
+	}
+	return err
+}

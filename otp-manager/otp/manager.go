@@ -1,12 +1,16 @@
 package otp
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha1"
 	"encoding/binary"
+	"errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"log"
 	"math/rand"
 	"otp-manager/common"
+	otpErrors "otp-manager/errors"
 	"otp-manager/senders"
 	"time"
 )
@@ -19,6 +23,13 @@ type OtpManager interface {
 type MongoOtpManager struct {
 	otpStore OTPStore
 	sender   senders.OtpSender
+}
+
+func NewMongoOtpManager(otpStore OTPStore, sender senders.OtpSender) OtpManager {
+	return &MongoOtpManager{
+		otpStore: otpStore,
+		sender:   sender,
+	}
 }
 
 func (m *MongoOtpManager) Send(ctx *context.Context, contact *common.Contact) (*string, error) {
@@ -37,7 +48,47 @@ func (m *MongoOtpManager) Send(ctx *context.Context, contact *common.Contact) (*
 }
 
 func (m *MongoOtpManager) Verify(ctx *context.Context, sessionId string, otp uint64) (*common.Contact, error) {
-	return nil, nil
+	result, err := m.otpStore.Get(ctx, sessionId)
+	err = handleOtpErrors(result, err)
+	if err != nil {
+		return nil, err
+	}
+	err = verifyOtp(m.otpStore, sessionId, otp, result)
+	if err != nil {
+		return nil, err
+	}
+	return result.Contact, nil
+}
+
+func verifyOtp(otpStore OTPStore, sessionId string, otp uint64, result *common.OTP) error {
+	provided := computeSha1(otp)
+	equal := bytes.Equal(provided, result.Otp)
+	if equal {
+		deleteOtp(otpStore, sessionId)
+		return nil
+	}
+	updateRetryCount(otpStore, sessionId)
+	return otpErrors.NewOtpError(otpErrors.INCORRECT, "Invalid OTP")
+}
+
+func updateRetryCount(store OTPStore, sessionId string) {
+	go func() {
+		ctx := context.Background()
+		err := store.UpdateRetryCount(&ctx, sessionId)
+		if err != nil {
+			log.Printf("Error updating otp retry count for sessionId: %s, reason: %v\n", sessionId, err)
+		}
+	}()
+}
+
+func deleteOtp(store OTPStore, sessionId string) {
+	go func() {
+		ctx := context.Background()
+		err := store.Delete(&ctx, sessionId)
+		if err != nil {
+			log.Printf("Error deleting otp for sessionId: %s, reason: %v\n", sessionId, err)
+		}
+	}()
 }
 
 func (m *MongoOtpManager) storeOtp(ctx *context.Context, sessionId string, otp uint64, contact *common.Contact, err chan error) {
@@ -80,4 +131,23 @@ func generateOTP() uint64 {
 func sessionId() string {
 	bsonId := primitive.NewObjectID().Hex()
 	return bsonId
+}
+
+func handleOtpErrors(result *common.OTP, err error) error {
+	if err != nil {
+		if errors.Is(err, &otpErrors.OtpDoesNotExistError{}) {
+			return otpErrors.NewOtpError(otpErrors.NOT_FOUND, err.Error())
+		}
+		return err
+	}
+
+	if result.Retries > 5 {
+		return otpErrors.NewOtpError(otpErrors.LIMIT_EXCEEDED, "Maximum otp verification limit exceeded")
+	}
+
+	expTime := result.CreatedOn.Add(time.Duration(10) * time.Minute)
+	if expTime.Before(time.Now()) {
+		return otpErrors.NewOtpError(otpErrors.EXPIRED, "otp expired")
+	}
+	return nil
 }

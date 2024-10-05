@@ -27,9 +27,10 @@ func loadUserCollection(ctx *context.Context, mongoConfig *mongodb.MongoConfig) 
 	emailPhoneCompoundIndex := mongo.IndexModel{
 		Keys: bson.D{
 			{"emailId", 1},
-			{"phoneNumber", 1},
+			{"phoneNumber.countryCode", 1},
+			{"phoneNumber.number", 1},
 		},
-		Options: options.Index().SetName("emailId-phone-index").SetUnique(false),
+		Options: options.Index().SetName("emailId-phone-index").SetUnique(true),
 	}
 	userColl, _ := mongoConfig.GetCollection(common.UserCollection)
 	_, err := userColl.Indexes().CreateMany(*ctx, []mongo.IndexModel{userIdIndex, emailPhoneCompoundIndex})

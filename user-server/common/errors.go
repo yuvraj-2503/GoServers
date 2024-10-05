@@ -15,3 +15,11 @@ type NotFoundError struct {
 func (e *NotFoundError) Error() string {
 	return e.Message
 }
+
+type UserDoesNotExistError struct {
+	Message string
+}
+
+func (e *UserDoesNotExistError) Error() string {
+	return e.Message
+}

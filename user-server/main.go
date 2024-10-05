@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"user-server/config"
+	"user-server/signin"
 	"user-server/signup"
 )
 
@@ -14,8 +15,12 @@ func main() {
 	router := gin.Default()
 	ctx := context.Background()
 
+	// signup
 	signup.LoadDB(&ctx)
 	signup.LoadHandlers(router)
+
+	// signin
+	signin.LoadHandlers(router)
 
 	public := router.Group("/api/v1")
 	public.GET("/health", Health)

@@ -25,19 +25,19 @@ func (e *OtpDoesNotExistError) Error() string {
 }
 
 type OtpError struct {
-	code    string
-	message string
+	Code    string
+	Message string
 }
 
 func NewOtpError(code string, message string) *OtpError {
 	return &OtpError{
-		code:    code,
-		message: message,
+		Code:    code,
+		Message: message,
 	}
 }
 
 func (e *OtpError) Error() string {
-	return fmt.Sprintf("OTP Error, Code %s, Message %s", e.code, e.message)
+	return fmt.Sprintf("OTP Error, Code %s, Message %s", e.Code, e.Message)
 }
 
 const (

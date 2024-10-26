@@ -17,7 +17,7 @@ func HandleOtpErrors(ctx *gin.Context, err error) bool {
 			Unauthorized(ctx, "otp-expired", "otp is expired")
 			return true
 		} else if e.Code == otpErrors.LIMIT_EXCEEDED {
-			TooManyRequest(ctx, e.Error())
+			TooManyRequest(ctx, "otp limit exceeded")
 			return true
 		} else if e.Code == otpErrors.NOT_FOUND {
 			NotFound(ctx, "otp doesn't exist")

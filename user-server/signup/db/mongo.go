@@ -42,7 +42,7 @@ func (u *MongoUserStore) Get(ctx *context.Context, filter Filter) (*User, error)
 
 func (u *MongoUserStore) GetByPhoneNumber(ctx *context.Context, phoneNumber *common.PhoneNumber) (*User, error) {
 	bsonFilter := bson.D{{
-		Key: "phoneNumber.code", Value: phoneNumber.CountryCode,
+		Key: "phoneNumber.countryCode", Value: phoneNumber.CountryCode,
 	}, {
 		Key: "phoneNumber.number", Value: phoneNumber.Number,
 	}}
@@ -118,7 +118,7 @@ func (u *MongoUserStore) CheckExists(ctx *context.Context, filter Filter) (bool,
 
 func (u *MongoUserStore) CheckIfMobileExists(ctx *context.Context, phoneNumber *common.PhoneNumber) (bool, error) {
 	bsonFilter := bson.D{{
-		Key: "phoneNumber.code", Value: phoneNumber.CountryCode,
+		Key: "phoneNumber.countryCode", Value: phoneNumber.CountryCode,
 	}, {
 		Key: "phoneNumber.number", Value: phoneNumber.Number,
 	}}

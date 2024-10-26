@@ -13,16 +13,22 @@ import (
 var Configuration *ServerConfig
 
 type ServerConfig struct {
-	ServerPort  int
-	SecretKey   string
-	Msg91Config *Msg91Config
-	MongoConfig *mongodb.MongoConfig
+	ServerPort     int
+	SecretKey      string
+	Msg91Config    *Msg91Config
+	SendgridConfig *SendgridConfig
+	MongoConfig    *mongodb.MongoConfig
 }
 
 type Msg91Config struct {
 	BaseUrl    string
 	AuthKey    string
 	TemplateId string
+}
+
+type SendgridConfig struct {
+	SenderId       string
+	SendgridApiKey string
 }
 
 func init() {
@@ -45,10 +51,18 @@ func loadConfig() {
 	}
 
 	Configuration = &ServerConfig{
-		ServerPort:  port,
-		SecretKey:   os.Getenv("SECRET_KEY"),
-		Msg91Config: getMsg91Config(),
-		MongoConfig: getMongoConfig(),
+		ServerPort:     port,
+		SecretKey:      os.Getenv("SECRET_KEY"),
+		Msg91Config:    getMsg91Config(),
+		SendgridConfig: getSendgridConfig(),
+		MongoConfig:    getMongoConfig(),
+	}
+}
+
+func getSendgridConfig() *SendgridConfig {
+	return &SendgridConfig{
+		SenderId:       os.Getenv("SENDGRID_SENDER_ID"),
+		SendgridApiKey: os.Getenv("SENDGRID_API_KEY"),
 	}
 }
 

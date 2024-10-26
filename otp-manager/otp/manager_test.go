@@ -3,13 +3,12 @@ package otp
 import (
 	"context"
 	"log"
+	"mail-sender/mail"
 	mongodb "mongo-utils"
 	"otp-manager/common"
 	"otp-manager/senders"
-	"otp-manager/sms"
 	"reflect"
 	"testing"
-	user "user-server/common"
 )
 
 var otpStore OTPStore
@@ -29,9 +28,12 @@ func init() {
 		panic(err)
 	}
 	otpStore = NewMongoOTPStore(coll)
-	smsSender := sms.NewMSG91Sender("https://control.msg91.com/api/v5/flow", "409278AEa5Q6FhOTi65733bdaP1",
-		"657015acd6fc0526436e8f82")
-	otpSender = senders.NewSmsOtpSender(&ctx, smsSender)
+	//smsSender := sms.NewMSG91Sender("https://control.msg91.com/api/v5/flow", "409278AEa5Q6FhOTi65733bdaP1",
+	//	"657015acd6fc0526436e8f82")
+	//otpSender = senders.NewSmsOtpSender(&ctx, smsSender)
+	var sendgridSender = mail.NewSendgridMailSender("noreply@ziroh.com",
+		"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")
+	otpSender = senders.NewMailOtpSender(&ctx, sendgridSender)
 }
 
 func TestMongoOtpManager_Send(t *testing.T) {
@@ -61,10 +63,11 @@ func TestMongoOtpManager_Send(t *testing.T) {
 			args: args{
 				ctx: &ctx,
 				contact: &common.Contact{
-					PhoneNumber: &user.PhoneNumber{
-						CountryCode: "+91",
-						Number:      "7250378940",
-					},
+					//PhoneNumber: &user.PhoneNumber{
+					//	CountryCode: "+91",
+					//	Number:      "7250378940",
+					//},
+					EmailId: "singh.yuvraj1047@gmail.com",
 				},
 			},
 			want:    &result,

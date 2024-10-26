@@ -5,4 +5,5 @@ use (
 	user-server
 	otp-manager
 	token-manager
+	mail-sender
 )

@@ -10,3 +10,7 @@ type SignUpRequest struct {
 	Device      *common.Device      `json:"device" binding:"required"`
 	SessionId   string              `json:"sessionId" binding:"required"`
 }
+
+type EmailOTPRequest struct {
+	EmailId string `json:"emailId" binding:"required"`
+}

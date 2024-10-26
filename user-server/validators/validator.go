@@ -23,9 +23,12 @@ func preCheck(ctx *gin.Context) {
 	}
 }
 
-func ValidatePhoneNumber(ctx *gin.Context, phone *common.PhoneNumber) {
+func ValidatePhoneNumber(ctx *gin.Context, phone *common.PhoneNumber) bool {
 	switch {
 	case len(phone.Number) < 7 || len(phone.Number) > 15:
 		common.BadRequest(ctx, "bad-request", "invalid mobile number")
+		return false
 	}
+
+	return true
 }

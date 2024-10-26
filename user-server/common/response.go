@@ -44,7 +44,7 @@ func ConflictError(c *gin.Context, message string) {
 
 func InternalError(c *gin.Context, message string) {
 	response := &Result{
-		Code:    "core-error",
+		Code:    "internal-error",
 		Message: message,
 	}
 	c.JSON(http.StatusInternalServerError, response)

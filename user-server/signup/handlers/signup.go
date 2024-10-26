@@ -28,7 +28,7 @@ func (s *SignUpHandler) SignUp(ctx *gin.Context) {
 	requestContext := ctx.Request.Context()
 	result, err := s.signupManager.SignUp(&requestContext, &request)
 	if err != nil {
-		log.Println(err)
+		log.Printf("Failed to signup with sessionId %s , reason %v", request.SessionId, err)
 		handle(err, ctx)
 		return
 	}

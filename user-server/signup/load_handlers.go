@@ -3,6 +3,7 @@ package signup
 import (
 	"context"
 	"github.com/gin-gonic/gin"
+	"mail-sender/mail"
 	"otp-manager/otp"
 	"otp-manager/senders"
 	"otp-manager/sms"
@@ -29,7 +30,11 @@ func LoadHandlers(router *gin.Engine) {
 		config.Configuration.Msg91Config.TemplateId)
 
 	smsOtpSender := senders.NewSmsOtpSender(&ctx, smsSender)
-	emailOtpManager := otp.NewMongoOtpManager(otpStore, nil)
+
+	sendGridSender := mail.NewSendgridMailSender(config.Configuration.SendgridConfig.SenderId,
+		config.Configuration.SendgridConfig.SendgridApiKey)
+	mailOtpSender := senders.NewMailOtpSender(&ctx, sendGridSender)
+	emailOtpManager := otp.NewMongoOtpManager(otpStore, mailOtpSender)
 	smsOtpManager := otp.NewMongoOtpManager(otpStore, smsOtpSender)
 	tokenManager := token_manager.NewJwtTokenManager(config.Configuration.SecretKey)
 
@@ -42,4 +47,5 @@ func loadRoutes(router *gin.Engine) {
 	signup := router.Group("/api/v1")
 	signup.POST("/signup", signUpHandler.SignUp)
 	signup.POST("/otp/sms", signUpHandler.SendSmsOtp)
+	signup.POST("/otp/email", signUpHandler.SendEmailOtp)
 }

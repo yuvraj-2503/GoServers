@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"user-server/authenticator"
 	"user-server/config"
 	"user-server/signin"
 	"user-server/signup"
@@ -21,6 +22,10 @@ func main() {
 
 	// signin
 	signin.LoadHandlers(router)
+
+	// authenticator
+	authenticator.LoadDB(&ctx)
+	authenticator.LoadHandlers(router)
 
 	public := router.Group("/api/v1")
 	public.GET("/health", Health)

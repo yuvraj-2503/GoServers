@@ -7,20 +7,23 @@ import (
 )
 
 func ParseAndValidate(ctx *gin.Context, object interface{}) bool {
-	preCheck(ctx)
+	if !preCheck(ctx) {
+		return false
+	}
 	if err := ctx.ShouldBindJSON(object); err != nil {
-		log.Printf("Validation Error: %s", err) // TODO: We can handle this error to provide more fine grained message to the client
+		log.Printf("Validation Error: %s", err.Error()) // TODO: We can handle this error to provide more fine grained message to the client
 		common.BadRequest(ctx, "bad-request", "Invalid request: failed to parse request body")
 		return false
 	}
 	return true
 }
 
-func preCheck(ctx *gin.Context) {
+func preCheck(ctx *gin.Context) bool {
 	if ctx.Request.ContentLength == 0 {
 		common.BadRequest(ctx, "bad-request", "request body is empty")
-		return
+		return false
 	}
+	return true
 }
 
 func ValidatePhoneNumber(ctx *gin.Context, phone *common.PhoneNumber) bool {

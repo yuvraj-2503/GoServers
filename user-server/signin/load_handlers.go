@@ -24,5 +24,5 @@ func LoadHandlers(router *gin.Engine) {
 
 func loadRoutes(router *gin.Engine) {
 	signin := router.Group("/api/v1")
-	signin.POST("/signin", signInHandler.SignIn)
+	signin.POST("/signIn", signInHandler.SignIn)
 }

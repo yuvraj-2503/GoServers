@@ -1,9 +1,0 @@
-go 1.22.8
-
-use (
-	mongo-utils
-	user-server
-	otp-manager
-	token-manager
-	mail-sender
-)

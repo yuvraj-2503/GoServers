@@ -6,6 +6,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"time"
 	"user-server/common"
 )
 
@@ -39,6 +40,9 @@ func getUpdates(profile *Profile) bson.D {
 	if profile.UpdatedOn != nil {
 		updates = append(updates, bson.E{Key: "updatedOn", Value: profile.UpdatedOn})
 	}
+	if profile.PictureUpdatedOn != nil {
+		updates = append(updates, bson.E{Key: "pictureUpdatedOn", Value: profile.PictureUpdatedOn})
+	}
 	return bson.D{bson.E{Key: "$set", Value: updates}}
 }
 
@@ -55,6 +59,26 @@ func (p *MongoProfileStore) Get(ctx *context.Context, userId string) (*Profile, 
 		return nil, err
 	}
 	return &profile, nil
+}
+
+func (p *MongoProfileStore) GetByUserId(ctx *context.Context, userId string,
+	time time.Time) (*Profile, error) {
+	filter := bson.M{
+		"userId": userId,
+		"$or": []bson.M{
+			{"updatedOn": bson.M{"$gte": time}},
+			{"pictureUpdatedOn": bson.M{"$gte": time}},
+		},
+	}
+
+	var result Profile
+	err := p.profileColl.FindOne(*ctx, filter).Decode(&result)
+	if errors.Is(err, mongo.ErrNoDocuments) {
+		return nil, &common.NotFoundError{
+			Message: "User Profile not found",
+		}
+	}
+	return &result, err
 }
 
 func (p *MongoProfileStore) Delete(ctx *context.Context, userId string) error {

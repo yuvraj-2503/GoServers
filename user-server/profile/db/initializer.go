@@ -21,6 +21,7 @@ func LoadDB(ctx *context.Context) {
 	updatedOnIndex := mongo.IndexModel{
 		Keys: bson.D{
 			{"updatedOn", 1},
+			{"pictureUpdatedOn", 1},
 		},
 		Options: options.Index().SetName("time-index").SetUnique(false),
 	}

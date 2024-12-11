@@ -1,6 +1,7 @@
 package config
 
 import (
+	"blob-manager/aws"
 	"github.com/joho/godotenv"
 	"log"
 	mongodb "mongo-utils"
@@ -18,6 +19,7 @@ type ServerConfig struct {
 	Msg91Config    *Msg91Config
 	SendgridConfig *SendgridConfig
 	MongoConfig    *mongodb.MongoConfig
+	AWSConfig      *aws.AWSConfig
 }
 
 type Msg91Config struct {
@@ -56,6 +58,18 @@ func loadConfig() {
 		Msg91Config:    getMsg91Config(),
 		SendgridConfig: getSendgridConfig(),
 		MongoConfig:    getMongoConfig(),
+		AWSConfig:      getAWSConfig(),
+	}
+}
+
+func getAWSConfig() *aws.AWSConfig {
+	return &aws.AWSConfig{
+		AccessKeyID:     os.Getenv("AWS_ACCESS_KEY_ID"),
+		AccessKeySecret: os.Getenv("AWS_ACCESS_KEY_SECRET"),
+		Region:          os.Getenv("AWS_REGION"),
+		BucketName:      os.Getenv("AWS_BUCKET_NAME"),
+		UploadTimeout:   1000000,
+		BaseURL:         os.Getenv("AWS_BASE_URL"),
 	}
 }
 

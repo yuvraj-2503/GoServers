@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"user-server/authenticator"
 	"user-server/config"
+	"user-server/endpoints"
+	endpointsdb "user-server/endpoints/db"
 	"user-server/profile"
 	profileDb "user-server/profile/db"
 	"user-server/signin"
@@ -29,8 +31,13 @@ func main() {
 	authenticator.LoadDB(&ctx)
 	authenticator.LoadHandlers(router)
 
+	// profile
 	profileDb.LoadDB(&ctx)
 	profile.LoadHandlers(router)
+
+	// endpoints
+	endpointsdb.LoadDB(&ctx)
+	endpoints.LoadHandlers(router)
 
 	public := router.Group("/api/v1")
 	public.GET("/health", Health)

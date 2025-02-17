@@ -15,8 +15,22 @@ type MongoConfig struct {
 }
 
 func (c *MongoConfig) getMongoClient() (*mongo.Client, error) {
-	ctx, _ := context.WithTimeout(context.Background(), 20*time.Second)
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI(c.ConnectionString))
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	// Create MongoDB client options
+	clientOptions := options.Client().ApplyURI(c.ConnectionString)
+
+	// If username and password are provided, set authentication credentials
+	if c.Username != "" && c.Password != "" {
+		credential := options.Credential{
+			Username: c.Username,
+			Password: c.Password,
+		}
+		clientOptions.SetAuth(credential)
+	}
+
+	client, err := mongo.Connect(ctx, clientOptions)
 	return client, err
 }
 

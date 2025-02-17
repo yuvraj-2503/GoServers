@@ -1,8 +1,0 @@
-go 1.23.2
-
-use (
-	../mongo-utils
-	../blob-manager
-	../token-manager
-	../otp-manager
-)

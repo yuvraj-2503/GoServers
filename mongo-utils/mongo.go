@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"os"
 	"time"
 )
 
@@ -31,7 +32,9 @@ func (c *MongoConfig) getMongoClient() (*mongo.Client, error) {
 		clientOptions.SetAuth(credential)
 	}
 
-	clientOptions.SetTLSConfig(&tls.Config{})
+	if os.Getenv("APP_ENV") == "DEVELOPMENT" {
+		clientOptions.SetTLSConfig(&tls.Config{})
+	}
 
 	client, err := mongo.Connect(ctx, clientOptions)
 	return client, err

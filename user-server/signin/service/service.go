@@ -69,5 +69,6 @@ func getClaims(userId string, emailId string, machineId string, appId string) *t
 		IAT:       &iat,
 		EXP:       &exp,
 		Kind:      "USER",
+		Sub:       userId,
 	}
 }

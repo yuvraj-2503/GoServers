@@ -37,5 +37,6 @@ func generateTokenClaims(userId string) *token.TokenClaims {
 		IAT:    &iat,
 		EXP:    &exp,
 		Kind:   "USER",
+		Sub:    userId,
 	}
 }

@@ -7,4 +7,6 @@ use (
 	token-manager
 	user-server
 	blob-manager
+	postgres-utils
+	validators
 )

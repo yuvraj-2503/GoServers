@@ -9,4 +9,5 @@ use (
 	blob-manager
 	postgres-utils
 	validators
+	social-server
 )

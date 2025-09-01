@@ -45,6 +45,7 @@ func (m *MSG91Sender) Send(ctx *context.Context, sms *Sms) error {
 		log.Printf("Failed to send sms: %v", response.Status)
 		return &errors.OtpSendingError{Message: response.Status}
 	}
+	log.Printf("Successfully sent sms: %v", response.Status)
 	defer response.Body.Close()
 	return nil
 }

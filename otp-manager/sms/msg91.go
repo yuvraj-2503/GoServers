@@ -3,6 +3,7 @@ package sms
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 	"otp-manager/errors"
 	"strconv"
@@ -37,9 +38,11 @@ func (m *MSG91Sender) Send(ctx *context.Context, sms *Sms) error {
 	m.setHeaders(req)
 	response, err := http.DefaultClient.Do(req)
 	if err != nil {
+		log.Printf("Failed to send sms: %v", err.Error())
 		return &errors.NetworkConnectionError{}
 	}
 	if response.StatusCode != 200 {
+		log.Printf("Failed to send sms: %v", response.Status)
 		return &errors.OtpSendingError{Message: response.Status}
 	}
 	defer response.Body.Close()

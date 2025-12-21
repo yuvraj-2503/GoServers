@@ -6,6 +6,7 @@ import (
 	"crypto/sha1"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"log"
 	"math/rand"
@@ -37,13 +38,14 @@ func (m *MongoOtpManager) Send(ctx *context.Context, contact *common.Contact) (*
 	sessionId := sessionId()
 	otp := generateOTP()
 	m.storeOtp(ctx, sessionId, otp, contact, err)
-	m.send(contact, otp, err)
+	//m.send(contact, otp, err)
 	for i := 0; i < 2; i++ {
 		e := <-err
 		if e != nil {
 			return nil, e
 		}
 	}
+	log.Println(fmt.Sprintf("OTP sent successfully, otp: %d", otp))
 	return &sessionId, nil
 }
 

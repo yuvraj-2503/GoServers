@@ -39,7 +39,7 @@ func (m *MongoOtpManager) Send(ctx *context.Context, contact *common.Contact) (*
 	otp := generateOTP()
 	m.storeOtp(ctx, sessionId, otp, contact, err)
 	//m.send(contact, otp, err)
-	for i := 0; i < 2; i++ {
+	for i := 0; i < 1; i++ {
 		e := <-err
 		if e != nil {
 			return nil, e

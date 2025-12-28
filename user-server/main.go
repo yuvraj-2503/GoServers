@@ -2,10 +2,13 @@ package main
 
 import (
 	"context"
-	"github.com/gin-gonic/gin"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
+
+	"github.com/gin-gonic/gin"
+
 	"user-server/authenticator"
 	"user-server/config"
 	"user-server/endpoints"
@@ -20,37 +23,38 @@ func main() {
 	router := gin.Default()
 	ctx := context.Background()
 
-	// signup
+	// DB + handlers
 	signup.LoadDB(&ctx)
 	signup.LoadHandlers(router)
 
-	// signin
 	signin.LoadHandlers(router)
 
-	// authenticator
 	authenticator.LoadDB(&ctx)
 	authenticator.LoadHandlers(router)
 
-	// profile
 	profileDb.LoadDB(&ctx)
 	profile.LoadHandlers(router)
 
-	// endpoints
 	endpointsdb.LoadDB(&ctx)
 	endpoints.LoadHandlers(router)
 
+	// Health
 	public := router.Group("/api/v1")
 	public.GET("/health", Health)
 
-	err := router.Run("0.0.0.0:" + strconv.Itoa(config.Configuration.ServerPort))
-	if err != nil {
-		log.Panicf("Failed to start user server, reason: %v", err)
-		return
+	// PORT handling (Railway compatible)
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = strconv.Itoa(config.Configuration.ServerPort)
 	}
 
-	log.Println("Started user server at port: " + strconv.Itoa(config.Configuration.ServerPort))
+	log.Println("🚀 Starting user server on port:", port)
+
+	if err := router.Run("0.0.0.0:" + port); err != nil {
+		log.Panicf("Failed to start user server, reason: %v", err)
+	}
 }
 
 func Health(c *gin.Context) {
-	c.Data(http.StatusOK, gin.MIMEPlain, []byte{'0'})
+	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }

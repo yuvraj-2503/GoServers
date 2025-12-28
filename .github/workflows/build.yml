@@ -68,18 +68,17 @@ jobs:
       - name: Ensure Dockerfile exists for `user-server`
         run: |
           if [ ! -f user-server/Dockerfile ]; then
-            cat > user-server/Dockerfile <<'EOF'
-FROM golang:1.23-alpine AS build
-WORKDIR /src
-COPY go.mod go.sum ./
-RUN go mod download
-COPY . .
-WORKDIR /src/user-server
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /server
-FROM alpine:3.18
-COPY --from=build /server /server
-ENTRYPOINT ["/server"]
-EOF
+            printf '%s\n' \
+              'FROM golang:1.23-alpine AS build' \
+              'WORKDIR /src' \
+              'COPY go.mod go.sum ./' \
+              'RUN go mod download' \
+              'COPY . .' \
+              'WORKDIR /src/user-server' \
+              'RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /server' \
+              'FROM alpine:3.18' \
+              'COPY --from=build /server /server' \
+              'ENTRYPOINT ["/server"]' > user-server/Dockerfile
           fi
 
       - name: Build and push Docker image for user-server

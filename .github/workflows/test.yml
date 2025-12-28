@@ -1,0 +1,67 @@
+name: user-server-test
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'user-server/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'user-server/**'
+
+permissions:
+  contents: read
+
+jobs:
+  run-tests:
+    name: Run tests
+    runs-on: ubuntu-latest
+    env:
+      GO_VERSION: '1.23.2'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ${{ github.workspace }}/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Install dependencies
+        run: go mod download ./...
+
+      - name: Run tests (user-server only)
+        run: |
+          if [ -d user-server ]; then
+            cd user-server
+            go test ./... -v
+          else
+            echo "user-server directory not found; skipping tests"
+          fi
+
+      - name: Run tests with coverage for artifacts (user-server only)
+        run: |
+          mkdir -p test-artifacts
+          if [ -d user-server ]; then
+            cd user-server
+            go test -coverprofile=../test-artifacts/coverage.out ./... || true
+          else
+            echo "user-server directory not found; skipping coverage generation"
+          fi
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-artifacts
+          path: test-artifacts/

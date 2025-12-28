@@ -1,0 +1,71 @@
+name: user-server-quality-gate
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'user-server/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'user-server/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GO_VERSION: '1.23.2'
+  MIN_COVERAGE: '75'
+
+jobs:
+  quality:
+    name: Coverage + Sonar
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Install deps
+        run: go mod download ./...
+
+      - name: Run tests with coverage (user-server only)
+        run: |
+          if [ -d user-server ]; then
+            cd user-server
+            go test -coverprofile=coverage.out ./...
+            go tool cover -func=coverage.out | awk '/total:/ {print $3}' > ../coverage_percent.txt
+            COVERAGE=$(cat ../coverage_percent.txt | sed 's/%//')
+            echo "Coverage is ${COVERAGE}%"
+            awk -v cov="$COVERAGE" -v min="$MIN_COVERAGE" 'BEGIN{if(cov+0 < min+0){print "Coverage threshold not met: " cov "%"; exit 1}}'
+          else
+            echo "user-server directory not found; skipping coverage"
+          fi
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: user-server/coverage.out
+
+      - name: Run Sonar Scanner (requires SONAR_HOST_URL, SONAR_TOKEN, SONAR_PROJECT_KEY)
+        env:
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_PROJECT_KEY: ${{ secrets.SONAR_PROJECT_KEY }}
+        run: |
+          if [ -z "${SONAR_HOST_URL}" ] || [ -z "${SONAR_TOKEN}" ] || [ -z "${SONAR_PROJECT_KEY}" ]; then
+            echo "One or more Sonar secrets are missing (SONAR_HOST_URL, SONAR_TOKEN, SONAR_PROJECT_KEY). Skipping Sonar analysis.";
+            exit 0;
+          fi
+          docker run --rm -e SONAR_HOST_URL=${SONAR_HOST_URL} -e SONAR_TOKEN=${SONAR_TOKEN} -v "$PWD":/usr/src sonarsource/sonar-scanner-cli \
+            -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+            -Dsonar.sources=. \
+            -Dsonar.go.coverage.reportPaths=user-server/coverage.out \
+            -Dsonar.host.url=${SONAR_HOST_URL} \
+            -Dsonar.login=${SONAR_TOKEN}

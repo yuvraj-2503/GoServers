@@ -10,6 +10,8 @@ import (
 	token_manager "token-manager"
 	"user-server/common"
 	"user-server/config"
+	device_store "user-server/devices/db"
+	device_manager "user-server/devices/service"
 	"user-server/signup/db"
 	"user-server/signup/handlers"
 	"user-server/signup/service"
@@ -37,8 +39,11 @@ func LoadHandlers(router *gin.Engine) {
 	emailOtpManager := otp.NewMongoOtpManager(otpStore, mailOtpSender)
 	smsOtpManager := otp.NewMongoOtpManager(otpStore, smsOtpSender)
 	tokenManager := token_manager.NewJwtTokenManager(config.Configuration.SecretKey)
+	deviceCollection, _ := mongoConfig.GetCollection(common.UserDeviceCollection)
+	userDeviceStore := device_store.NewMongoUserDeviceStore(deviceCollection)
+	deviceManager := device_manager.NewUserDeviceManager(userDeviceStore)
 
-	signUpManager := service.NewMongoSignupManager(userStore, emailOtpManager, smsOtpManager, tokenManager)
+	signUpManager := service.NewMongoSignupManager(userStore, emailOtpManager, smsOtpManager, tokenManager, deviceManager)
 	signUpHandler = handlers.NewSignUpHandler(signUpManager)
 	loadRoutes(router)
 }

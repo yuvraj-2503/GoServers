@@ -8,6 +8,7 @@ import (
 	"time"
 	token "token-manager"
 	"user-server/common"
+	"user-server/devices/service"
 	"user-server/signup/api"
 	"user-server/signup/db"
 )
@@ -23,15 +24,18 @@ type MongoSignupManager struct {
 	emailOtpManager otp.OtpManager
 	smsOtpManager   otp.OtpManager
 	tokenManager    token.TokenManager
+	deviceManager   *service.UserDeviceManager
 }
 
 func NewMongoSignupManager(userStore db.UserStore,
-	emailOtpManager otp.OtpManager, smsOtpManager otp.OtpManager, tokenManager token.TokenManager) *MongoSignupManager {
+	emailOtpManager otp.OtpManager, smsOtpManager otp.OtpManager, tokenManager token.TokenManager,
+	deviceManager *service.UserDeviceManager) *MongoSignupManager {
 	return &MongoSignupManager{
 		userStore:       userStore,
 		emailOtpManager: emailOtpManager,
 		smsOtpManager:   smsOtpManager,
 		tokenManager:    tokenManager,
+		deviceManager:   deviceManager,
 	}
 }
 
@@ -76,6 +80,11 @@ func (m *MongoSignupManager) SignUp(ctx *context.Context, signUpRequest *api.Sig
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	_, err = m.deviceManager.RegisterDevice(ctx, user.UserId, signUpRequest.Device)
+	if err != nil {
+		return nil, err
 	}
 
 	result.UserId = user.UserId

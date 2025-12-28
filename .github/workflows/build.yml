@@ -1,0 +1,91 @@
+name: user-server-build
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'user-server/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'user-server/**'
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  GO_VERSION: '1.23.2'
+
+jobs:
+  build-user-server:
+    name: Build user-server
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ${{ github.workspace }}/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Install dependencies
+        run: go mod download ./...
+
+      - name: Build `user-server` binary
+        run: |
+          cd user-server
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o user-server
+          mkdir -p ../build
+          BUILD_NAME=user-server-${{ github.run_number }}-SNAPSHOT
+          mv user-server ../build/${BUILD_NAME}
+          echo "Built ../build/${BUILD_NAME}"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: user-server-${{ github.run_number }}-SNAPSHOT
+          path: build/
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Ensure Dockerfile exists for `user-server`
+        run: |
+          if [ ! -f user-server/Dockerfile ]; then
+            cat > user-server/Dockerfile <<'EOF'
+FROM golang:1.23-alpine AS build
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+WORKDIR /src/user-server
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /server
+FROM alpine:3.18
+COPY --from=build /server /server
+ENTRYPOINT ["/server"]
+EOF
+          fi
+
+      - name: Build and push Docker image for user-server
+        uses: docker/build-push-action@v4
+        with:
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/${{ github.repository }}-user-server:user-server-${{ github.run_number }}-SNAPSHOT
+          file: ./user-server/Dockerfile
+          context: .

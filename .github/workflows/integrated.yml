@@ -1,0 +1,40 @@
+name: user-server-integrated
+
+on:
+  workflow_run:
+    workflows: ["user-server-build", "user-server-test"]
+    types:
+      - completed
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  wait-and-verify:
+    name: Verify Build and Test succeeded
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check recent workflow runs for Build and Test
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const workflowNames = ['user-server-build','user-server-test'];
+            let failures = [];
+            const runs = await github.rest.actions.listWorkflowRunsForRepo({ owner, repo, per_page: 50 });
+            for (const wfName of workflowNames) {
+              const run = runs.data.workflow_runs.find(r => r.name === wfName);
+              if (!run) {
+                failures.push(`${wfName}: no recent run found`);
+                continue;
+              }
+              if (run.status !== 'completed' || run.conclusion !== 'success') {
+                failures.push(`${wfName}: status=${run.status} conclusion=${run.conclusion}`);
+              }
+            }
+            if (failures.length > 0) {
+              throw new Error('Integrated check failed: ' + failures.join('; '));
+            }
+            console.log('Both user-server-build and user-server-test workflows have completed successfully.');

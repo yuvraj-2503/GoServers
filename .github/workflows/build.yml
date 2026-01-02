@@ -41,19 +41,35 @@ jobs:
       - name: Install dependencies
         run: go mod download
 
+      - name: Set image name and version
+        run: |
+          OWNER_LOWER=$(echo "${GITHUB_REPOSITORY%%/*}" | tr '[:upper:]' '[:lower:]')
+          REPO_LOWER=$(echo "${GITHUB_REPOSITORY#*/}" | tr '[:upper:]' '[:lower:]')
+          BUILD_NO=${GITHUB_RUN_NUMBER}
+          if [ "${GITHUB_REF}" = "refs/heads/main" ]; then
+            VERSION="user-server-1.0.${BUILD_NO}"
+            BUILD_NAME="user-server-1.0.${BUILD_NO}"
+          else
+            VERSION="user-server-1.0.${BUILD_NO}-SNAPSHOT"
+            BUILD_NAME="user-server-1.0.${BUILD_NO}-SNAPSHOT"
+          fi
+          IMAGE="ghcr.io/${OWNER_LOWER}/${REPO_LOWER}-user-server:${VERSION}"
+          echo "IMAGE=${IMAGE}" >> $GITHUB_ENV
+          echo "BUILD_NAME=${BUILD_NAME}" >> $GITHUB_ENV
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
       - name: Build `user-server` binary
         run: |
           cd user-server
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o user-server
           mkdir -p ../build
-          BUILD_NAME=user-server-${{ github.run_number }}-SNAPSHOT
           mv user-server ../build/${BUILD_NAME}
           echo "Built ../build/${BUILD_NAME}"
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: user-server-${{ github.run_number }}-SNAPSHOT
+          name: ${{ env.BUILD_NAME }}
           path: build/
 
       - name: Log in to GHCR
@@ -79,10 +95,12 @@ jobs:
               'ENTRYPOINT ["/server"]' > user-server/Dockerfile
           fi
 
+      
+
       - name: Build and push Docker image for user-server
         uses: docker/build-push-action@v4
         with:
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/${{ github.repository }}-user-server:user-server-${{ github.run_number }}-SNAPSHOT
+          tags: ${{ env.IMAGE }}
           file: ./user-server/Dockerfile
           context: .

@@ -39,6 +39,16 @@ jobs:
       - name: Install dependencies
         run: go mod download
 
+      - name: Set test artifact name
+        run: |
+          BUILD_NO=${GITHUB_RUN_NUMBER}
+          if [ "${GITHUB_REF}" = "refs/heads/main" ]; then
+            BUILD_NAME="user-server-test-1.0.${BUILD_NO}"
+          else
+            BUILD_NAME="user-server-test-1.0.${BUILD_NO}-SNAPSHOT"
+          fi
+          echo "BUILD_NAME=${BUILD_NAME}" >> $GITHUB_ENV
+
       - name: Run tests (user-server only)
         run: |
           if [ -d user-server ]; then
@@ -61,5 +71,5 @@ jobs:
       - name: Upload test artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: test-artifacts
+          name: ${{ env.BUILD_NAME }}
           path: test-artifacts/

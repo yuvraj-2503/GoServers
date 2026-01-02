@@ -84,12 +84,11 @@ jobs:
           if [ ! -f user-server/Dockerfile ]; then
             printf '%s\n' \
               'FROM golang:1.23-alpine AS build' \
-              'WORKDIR /src' \
-              'COPY go.mod go.sum ./' \
+              'WORKDIR /src/user-server' \
+              'COPY user-server/go.mod user-server/go.sum ./' \
               'RUN go mod download' \
               'COPY . .' \
-              'WORKDIR /src/user-server' \
-              'RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /server' \
+              'RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /server ./user-server' \
               'FROM alpine:3.18' \
               'COPY --from=build /server /server' \
               'ENTRYPOINT ["/server"]' > user-server/Dockerfile

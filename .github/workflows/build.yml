@@ -41,7 +41,7 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: Install dependencies
-        run: go mod download ./...
+        run: go mod download
 
       - name: Build `user-server` binary
         run: |

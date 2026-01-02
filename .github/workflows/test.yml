@@ -3,12 +3,9 @@ name: user-server-test
 on:
   push:
     branches: [ main ]
-    paths:
-      - 'user-server/**'
   pull_request:
     branches: [ main ]
-    paths:
-      - 'user-server/**'
+    types: [ opened, synchronize, labeled ]
 
 permissions:
   contents: read
@@ -19,6 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GO_VERSION: '1.23.2'
+    if: github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'ci-test')
     steps:
       - name: Checkout
         uses: actions/checkout@v4

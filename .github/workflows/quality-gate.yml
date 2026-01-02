@@ -5,10 +5,12 @@ on:
     branches: [ main ]
     paths:
       - 'user-server/**'
+      - '.github/workflows/**'
   pull_request:
     branches: [ main ]
     paths:
       - 'user-server/**'
+      - '.github/workflows/**'
   workflow_dispatch:
 
 permissions:

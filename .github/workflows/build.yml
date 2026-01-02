@@ -88,7 +88,7 @@ jobs:
               'COPY . .' \
               'WORKDIR /src/user-server' \
               'RUN go mod download' \
-              'RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /server ./user-server' \
+              'RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /server .' \
               'FROM alpine:3.18' \
               'COPY --from=build /server /server' \
               'ENTRYPOINT ["/server"]' > user-server/Dockerfile

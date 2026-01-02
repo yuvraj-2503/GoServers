@@ -1,13 +1,13 @@
 go 1.23.2
 
 use (
-    ./user-server
-    ./otp-manager
-    ./mail-sender
-    ./blob-manager
-    ./mongo-utils
-    ./token-manager
-    ./postgres-utils
-    ./validators
-    ./social-server
+    user-server
+    otp-manager
+    mail-sender
+    blob-manager
+    mongo-utils
+    token-manager
+    postgres-utils
+    validators
+    social-server
 )

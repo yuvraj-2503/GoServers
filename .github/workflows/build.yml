@@ -8,7 +8,7 @@ on:
     types: [ opened, synchronize, labeled ]
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 env:
@@ -22,6 +22,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
 
       - name: Set up Go
         uses: actions/setup-go@v4
@@ -103,3 +106,12 @@ jobs:
           tags: ${{ env.IMAGE }}
           file: ./user-server/Dockerfile
           context: .
+
+      - name: Create and push Git tag for main
+        if: github.ref == 'refs/heads/main'
+        run: |
+          echo "Creating tag ${VERSION} and pushing to origin"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "${VERSION}" -m "Release ${VERSION}"
+          git push origin "refs/tags/${VERSION}"

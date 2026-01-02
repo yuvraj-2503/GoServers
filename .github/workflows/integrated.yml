@@ -2,7 +2,7 @@ name: user-server-integrated
 
 on:
   workflow_run:
-    workflows: ["user-server-build", "user-server-test"]
+    workflows: ["user-server-build", "user-server-test", "user-server-quality-gate"]
     types:
       - completed
   workflow_dispatch:
@@ -12,29 +12,50 @@ permissions:
 
 jobs:
   wait-and-verify:
-    name: Verify Build and Test succeeded
+    name: Verify All Pipelines Succeeded
     runs-on: ubuntu-latest
     steps:
-      - name: Check recent workflow runs for Build and Test
+      - name: Check all workflow runs (Build, Test, Quality Gate)
         uses: actions/github-script@v6
         with:
           script: |
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-            const workflowNames = ['user-server-build','user-server-test'];
+            const requiredWorkflows = ['user-server-build', 'user-server-test', 'user-server-quality-gate'];
             let failures = [];
-            const runs = await github.rest.actions.listWorkflowRunsForRepo({ owner, repo, per_page: 50 });
-            for (const wfName of workflowNames) {
+            
+            const runs = await github.rest.actions.listWorkflowRunsForRepo({ 
+              owner, 
+              repo, 
+              per_page: 100 
+            });
+            
+            for (const wfName of requiredWorkflows) {
               const run = runs.data.workflow_runs.find(r => r.name === wfName);
+            
               if (!run) {
                 failures.push(`${wfName}: no recent run found`);
                 continue;
               }
-              if (run.status !== 'completed' || run.conclusion !== 'success') {
-                failures.push(`${wfName}: status=${run.status} conclusion=${run.conclusion}`);
+            
+              if (run.status !== 'completed') {
+                failures.push(`${wfName}: still running (status=${run.status})`);
+                continue;
               }
+            
+              if (run.conclusion !== 'success') {
+                failures.push(`${wfName}: failed (conclusion=${run.conclusion})`);
+                continue;
+              }
+            
+              console.log(`✓ ${wfName}: SUCCESS`);
             }
+            
             if (failures.length > 0) {
+              console.error('❌ Pipeline verification failed:');
+              failures.forEach(f => console.error(`  - ${f}`));
               throw new Error('Integrated check failed: ' + failures.join('; '));
             }
-            console.log('Both user-server-build and user-server-test workflows have completed successfully.');
+            
+            console.log('✓ All required pipelines (build, test, quality-gate) completed successfully!');
+

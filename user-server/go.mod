@@ -3,6 +3,27 @@ module user-server
 go 1.23.2
 
 require (
+    otp-manager v0.0.0
+    mail-sender v0.0.0
+    blob-manager v0.0.0
+    mongo-utils v0.0.0
+    token-manager v0.0.0
+    postgres-utils v0.0.0
+    validators v0.0.0
+)
+
+replace (
+    otp-manager => ../otp-manager
+    mail-sender => ../mail-sender
+    blob-manager => ../blob-manager
+    mongo-utils => ../mongo-utils
+    token-manager => ../token-manager
+    postgres-utils => ../postgres-utils
+    validators => ../validators
+)
+
+
+require (
 	github.com/gin-gonic/gin v1.10.0
 	github.com/joho/godotenv v1.5.1
 	go.mongodb.org/mongo-driver v1.16.1

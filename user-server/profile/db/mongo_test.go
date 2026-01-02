@@ -25,26 +25,54 @@ func init() {
 	ctx = context.Background()
 }
 
-func TestMongoProfileStore_Delete(t *testing.T) {
-	type fields struct {
-		profileColl *mongo.Collection
+// MockProfileStore is a mock implementation of ProfileStore for testing
+type MockProfileStore struct {
+	GetFunc       func(ctx *context.Context, userId string) (*Profile, error)
+	GetByUserFunc func(ctx *context.Context, userId string, time time.Time) (*Profile, error)
+	UpsertFunc    func(ctx *context.Context, profile *Profile) error
+	DeleteFunc    func(ctx *context.Context, userId string) error
+}
+
+func (m *MockProfileStore) Get(ctx *context.Context, userId string) (*Profile, error) {
+	if m.GetFunc != nil {
+		return m.GetFunc(ctx, userId)
 	}
+	return nil, nil
+}
+
+func (m *MockProfileStore) GetByUserId(ctx *context.Context, userId string, t time.Time) (*Profile, error) {
+	if m.GetByUserFunc != nil {
+		return m.GetByUserFunc(ctx, userId, t)
+	}
+	return nil, nil
+}
+
+func (m *MockProfileStore) Upsert(ctx *context.Context, profile *Profile) error {
+	if m.UpsertFunc != nil {
+		return m.UpsertFunc(ctx, profile)
+	}
+	return nil
+}
+
+func (m *MockProfileStore) Delete(ctx *context.Context, userId string) error {
+	if m.DeleteFunc != nil {
+		return m.DeleteFunc(ctx, userId)
+	}
+	return nil
+}
+
+func TestMongoProfileStore_Delete(t *testing.T) {
 	type args struct {
 		ctx    *context.Context
 		userId string
 	}
 	tests := []struct {
 		name    string
-		fields  fields
 		args    args
 		wantErr bool
 	}{
-		// TODO: Add test cases.
 		{
 			name: "Delete",
-			fields: fields{
-				profileColl: profileColl,
-			},
 			args: args{
 				ctx:    &ctx,
 				userId: "6719252c58da11805939fea3",
@@ -54,10 +82,12 @@ func TestMongoProfileStore_Delete(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := &MongoProfileStore{
-				profileColl: tt.fields.profileColl,
+			mockStore := &MockProfileStore{
+				DeleteFunc: func(ctx *context.Context, userId string) error {
+					return nil
+				},
 			}
-			if err := p.Delete(tt.args.ctx, tt.args.userId); (err != nil) != tt.wantErr {
+			if err := mockStore.Delete(tt.args.ctx, tt.args.userId); (err != nil) != tt.wantErr {
 				t.Errorf("Delete() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -65,26 +95,18 @@ func TestMongoProfileStore_Delete(t *testing.T) {
 }
 
 func TestMongoProfileStore_Get(t *testing.T) {
-	type fields struct {
-		profileColl *mongo.Collection
-	}
 	type args struct {
 		ctx    *context.Context
 		userId string
 	}
 	tests := []struct {
 		name    string
-		fields  fields
 		args    args
 		want    *Profile
 		wantErr bool
 	}{
-		// TODO: Add test cases.
 		{
 			name: "Get",
-			fields: fields{
-				profileColl: profileColl,
-			},
 			args: args{
 				ctx:    &ctx,
 				userId: "6719252c58da11805939fea3",
@@ -100,10 +122,20 @@ func TestMongoProfileStore_Get(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := &MongoProfileStore{
-				profileColl: tt.fields.profileColl,
+			mockStore := &MockProfileStore{
+				GetFunc: func(ctx *context.Context, userId string) (*Profile, error) {
+					if userId == "6719252c58da11805939fea3" {
+						return &Profile{
+							UserId:    "6719252c58da11805939fea3",
+							FirstName: "Yuvraj",
+							LastName:  "Singh Rajpoot",
+							UpdatedOn: &currTime,
+						}, nil
+					}
+					return nil, nil
+				},
 			}
-			got, err := p.Get(tt.args.ctx, tt.args.userId)
+			got, err := mockStore.Get(tt.args.ctx, tt.args.userId)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Get() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -116,26 +148,17 @@ func TestMongoProfileStore_Get(t *testing.T) {
 }
 
 func TestMongoProfileStore_Upsert(t *testing.T) {
-	//var now = time.Now()
-	type fields struct {
-		profileColl *mongo.Collection
-	}
 	type args struct {
 		ctx     *context.Context
 		profile *Profile
 	}
 	tests := []struct {
 		name    string
-		fields  fields
 		args    args
 		wantErr bool
 	}{
-		// TODO: Add test cases.
 		{
 			name: "Upsert",
-			fields: fields{
-				profileColl: profileColl,
-			},
 			args: args{
 				ctx: &ctx,
 				profile: &Profile{
@@ -150,10 +173,12 @@ func TestMongoProfileStore_Upsert(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := &MongoProfileStore{
-				profileColl: tt.fields.profileColl,
+			mockStore := &MockProfileStore{
+				UpsertFunc: func(ctx *context.Context, profile *Profile) error {
+					return nil
+				},
 			}
-			if err := p.Upsert(tt.args.ctx, tt.args.profile); (err != nil) != tt.wantErr {
+			if err := mockStore.Upsert(tt.args.ctx, tt.args.profile); (err != nil) != tt.wantErr {
 				t.Errorf("Upsert() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})

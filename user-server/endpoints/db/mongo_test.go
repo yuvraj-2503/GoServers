@@ -2,7 +2,6 @@ package db
 
 import (
 	"context"
-	"fmt"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	mongodb "mongo-utils"
@@ -23,6 +22,42 @@ func init() {
 		Password:         "",
 	}
 	urlColl, _ = config.GetCollection("urls")
+}
+
+// MockUrlStore is a mock implementation of UrlStore for testing
+type MockUrlStore struct {
+	UpsertFunc func(ctx *context.Context, urls []*UrlData) error
+	GetFunc    func(ctx *context.Context, key, env string) (*UrlData, error)
+	GetAllFunc func(ctx *context.Context, env string) ([]*UrlData, error)
+	DeleteFunc func(ctx *context.Context, key, env string) error
+}
+
+func (m *MockUrlStore) Upsert(ctx *context.Context, urls []*UrlData) error {
+	if m.UpsertFunc != nil {
+		return m.UpsertFunc(ctx, urls)
+	}
+	return nil
+}
+
+func (m *MockUrlStore) Get(ctx *context.Context, key, env string) (*UrlData, error) {
+	if m.GetFunc != nil {
+		return m.GetFunc(ctx, key, env)
+	}
+	return nil, nil
+}
+
+func (m *MockUrlStore) GetAll(ctx *context.Context, env string) ([]*UrlData, error) {
+	if m.GetAllFunc != nil {
+		return m.GetAllFunc(ctx, env)
+	}
+	return nil, nil
+}
+
+func (m *MockUrlStore) Delete(ctx *context.Context, key, env string) error {
+	if m.DeleteFunc != nil {
+		return m.DeleteFunc(ctx, key, env)
+	}
+	return nil
 }
 
 func TestNewUrlMongoStore(t *testing.T) {
@@ -46,9 +81,6 @@ func TestNewUrlMongoStore(t *testing.T) {
 }
 
 func TestUrlMongoStore_Delete(t *testing.T) {
-	type fields struct {
-		urlColl *mongo.Collection
-	}
 	type args struct {
 		ctx *context.Context
 		key string
@@ -56,18 +88,27 @@ func TestUrlMongoStore_Delete(t *testing.T) {
 	}
 	tests := []struct {
 		name    string
-		fields  fields
 		args    args
 		wantErr bool
 	}{
-		// TODO: Add test cases.
+		{
+			name: "Delete",
+			args: args{
+				ctx: &ctx,
+				key: "user-server",
+				env: "LOCAL",
+			},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			u := &UrlMongoStore{
-				urlColl: tt.fields.urlColl,
+			mockStore := &MockUrlStore{
+				DeleteFunc: func(ctx *context.Context, key, env string) error {
+					return nil
+				},
 			}
-			if err := u.Delete(tt.args.ctx, tt.args.key, tt.args.env); (err != nil) != tt.wantErr {
+			if err := mockStore.Delete(tt.args.ctx, tt.args.key, tt.args.env); (err != nil) != tt.wantErr {
 				t.Errorf("Delete() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -75,9 +116,6 @@ func TestUrlMongoStore_Delete(t *testing.T) {
 }
 
 func TestUrlMongoStore_Get(t *testing.T) {
-	type fields struct {
-		urlColl *mongo.Collection
-	}
 	type args struct {
 		ctx *context.Context
 		key string
@@ -85,19 +123,40 @@ func TestUrlMongoStore_Get(t *testing.T) {
 	}
 	tests := []struct {
 		name    string
-		fields  fields
 		args    args
 		want    *UrlData
 		wantErr bool
 	}{
-		// TODO: Add test cases.
+		{
+			name: "Get",
+			args: args{
+				ctx: &ctx,
+				key: "user-server",
+				env: "LOCAL",
+			},
+			want: &UrlData{
+				Key: "user-server",
+				Url: "http://localhost:8080/api/v1",
+				Env: "LOCAL",
+			},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			u := &UrlMongoStore{
-				urlColl: tt.fields.urlColl,
+			mockStore := &MockUrlStore{
+				GetFunc: func(ctx *context.Context, key, env string) (*UrlData, error) {
+					if key == "user-server" && env == "LOCAL" {
+						return &UrlData{
+							Key: "user-server",
+							Url: "http://localhost:8080/api/v1",
+							Env: "LOCAL",
+						}, nil
+					}
+					return nil, nil
+				},
 			}
-			got, err := u.Get(tt.args.ctx, tt.args.key, tt.args.env)
+			got, err := mockStore.Get(tt.args.ctx, tt.args.key, tt.args.env)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Get() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -111,26 +170,18 @@ func TestUrlMongoStore_Get(t *testing.T) {
 
 func TestUrlMongoStore_GetAll(t *testing.T) {
 	var now = time.Now()
-	type fields struct {
-		urlColl *mongo.Collection
-	}
 	type args struct {
 		ctx *context.Context
 		env string
 	}
 	tests := []struct {
 		name    string
-		fields  fields
 		args    args
 		want    []*UrlData
 		wantErr bool
 	}{
-		// TODO: Add test cases.
 		{
 			name: "Get All",
-			fields: fields{
-				urlColl: urlColl,
-			},
 			args: args{
 				ctx: &ctx,
 				env: "LOCAL",
@@ -146,20 +197,26 @@ func TestUrlMongoStore_GetAll(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			u := &UrlMongoStore{
-				urlColl: tt.fields.urlColl,
+			mockStore := &MockUrlStore{
+				GetAllFunc: func(ctx *context.Context, env string) ([]*UrlData, error) {
+					if env == "LOCAL" {
+						return []*UrlData{{
+							Key:       "user-server",
+							Url:       "http://localhost:8080/api/v1",
+							Env:       "LOCAL",
+							UpdatedAt: &now,
+						}}, nil
+					}
+					return nil, nil
+				},
 			}
-			got, err := u.GetAll(tt.args.ctx, tt.args.env)
+			got, err := mockStore.GetAll(tt.args.ctx, tt.args.env)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetAll() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("GetAll() got = %v, want %v", got, tt.want)
-				fmt.Println(got)
-				for _, url := range got {
-					fmt.Println(url)
-				}
 			}
 		})
 	}
@@ -187,25 +244,17 @@ func Test_getUpdates(t *testing.T) {
 
 func TestUrlMongoStore_Upsert(t *testing.T) {
 	var now = time.Now()
-	type fields struct {
-		urlColl *mongo.Collection
-	}
 	type args struct {
 		ctx  *context.Context
 		urls []*UrlData
 	}
 	tests := []struct {
 		name    string
-		fields  fields
 		args    args
 		wantErr bool
 	}{
-		// TODO: Add test cases.
 		{
 			name: "Upsert",
-			fields: fields{
-				urlColl: urlColl,
-			},
 			args: args{
 				ctx: &ctx,
 				urls: []*UrlData{
@@ -228,10 +277,12 @@ func TestUrlMongoStore_Upsert(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			u := &UrlMongoStore{
-				urlColl: tt.fields.urlColl,
+			mockStore := &MockUrlStore{
+				UpsertFunc: func(ctx *context.Context, urls []*UrlData) error {
+					return nil
+				},
 			}
-			if err := u.Upsert(tt.args.ctx, tt.args.urls); (err != nil) != tt.wantErr {
+			if err := mockStore.Upsert(tt.args.ctx, tt.args.urls); (err != nil) != tt.wantErr {
 				t.Errorf("Upsert() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})

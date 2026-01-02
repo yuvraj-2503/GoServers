@@ -14,6 +14,13 @@ jobs:
   run-tests:
     name: Run tests
     runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:6.0
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.adminCommand({ping:1})'" --health-interval 10s --health-timeout 5s --health-retries 5
     env:
       GO_VERSION: '1.23.2'
     if: github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'ci-test')
@@ -39,6 +46,26 @@ jobs:
       - name: Install dependencies
         run: go mod download
 
+      - name: Wait for MongoDB to be ready
+        run: |
+          echo "Waiting for MongoDB..."
+          for i in `seq 1 60`; do
+            if bash -c "</dev/tcp/localhost/27017" >/dev/null 2>&1; then
+              echo "MongoDB is available"
+              break
+            fi
+            echo "MongoDB not yet available, sleeping... ($i)"
+            sleep 1
+            if [ $i -eq 60 ]; then
+              echo "Timed out waiting for MongoDB" >&2
+              exit 1
+            fi
+          done
+
+      - name: Seed test data
+        run: |
+          echo "Seeding MongoDB with test data"
+          go run ./user-server/testdata/seed/seed.go
       - name: Set test artifact name
         run: |
           BUILD_NO=${GITHUB_RUN_NUMBER}

@@ -10,6 +10,7 @@ on:
 permissions:
   contents: read
   actions: read
+  pull-requests: write
 
 jobs:
   wait-and-verify:
@@ -71,4 +72,36 @@ jobs:
             }
 
             console.log('✓ All required pipelines (build, test, quality-gate) completed successfully for head ' + headSha + '!');
+
+      - name: Remove workflow trigger labels on success
+        if: success()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const labelsToRemove = ['extra:build-needed', 'extra:test-needed', 'extra:quality-needed', 'ci-build', 'ci-test', 'ci-quality'];
+            
+            // Find the PR associated with this workflow run
+            const headSha = context.payload && context.payload.workflow_run && context.payload.workflow_run.head_sha ? context.payload.workflow_run.head_sha : process.env.GITHUB_SHA;
+            const prs = await github.rest.pulls.list({ owner, repo, state: 'open', head: `${owner}:${context.ref.replace('refs/heads/', '')}` });
+            
+            if (prs.data.length === 0) {
+              console.log('No open PR found for this head_sha, skipping label removal');
+              return;
+            }
+            
+            const pr = prs.data[0];
+            const prNumber = pr.number;
+            
+            for (const label of labelsToRemove) {
+              try {
+                if (pr.labels.find(l => l.name === label)) {
+                  await github.rest.issues.removeLabel({ owner, repo, issue_number: prNumber, name: label });
+                  console.log(`✓ Removed label: ${label}`);
+                }
+              } catch (err) {
+                console.log(`Label ${label} not present or error removing: ${err.message}`);
+              }
+            }
 

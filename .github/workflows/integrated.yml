@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   wait-and-verify:
-    name: Verify All Pipelines Succeeded
+    name: Code Pipeline
     runs-on: ubuntu-latest
     steps:
       - name: Check all workflow runs (Build, Test, Quality Gate)

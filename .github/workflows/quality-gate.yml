@@ -20,7 +20,6 @@ jobs:
   quality:
     name: Coverage + Integration Tests + Sonar
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'ci-quality') || contains(github.event.pull_request.labels.*.name, 'extra:quality-needed')
     services:
       mongo:
         image: mongo:6.0

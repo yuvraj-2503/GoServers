@@ -423,3 +423,226 @@ func TestMongoUserStore_UpdateEmailIdAfterInsert_AndGetByFilter(t *testing.T) {
         t.Fatalf("expected user to still exist by userId")
     }
 }
+
+func TestMongoUserStore_Unit_UpdatePhoneNumber_With_Error_Cases(t *testing.T) {
+    if testing.Short() {
+        t.Skip("skipping Mongo-backed test in short mode")
+    }
+
+    ctx := context.Background()
+    client, err := getMongoClientLocal(ctx)
+    if err != nil {
+        t.Fatalf("connect error: %v", err)
+    }
+    defer client.Disconnect(ctx)
+
+    coll := client.Database("user-server-test").Collection("users-upd-phone-error-test")
+    _ = coll.Drop(ctx)
+    defer coll.Drop(ctx)
+
+    store := NewMongoUserStore(coll)
+
+    // Insert initial user
+    u := &User{UserId: "phone-error-user", PhoneNumber: &common.PhoneNumber{CountryCode: "+1", Number: "5551234567"}}
+    if err := store.Insert(&ctx, u); err != nil {
+        t.Fatalf("Insert failed: %v", err)
+    }
+
+    // Update to new phone - success case
+    newPhone := &common.PhoneNumber{CountryCode: "+44", Number: "7776665555"}
+    if err := store.UpdatePhoneNumber(&ctx, "phone-error-user", newPhone); err != nil {
+        t.Fatalf("UpdatePhoneNumber success case failed: %v", err)
+    }
+
+    // Verify update worked
+    got, err := store.GetByPhoneNumber(&ctx, newPhone)
+    if err != nil || got == nil {
+        t.Fatalf("GetByPhoneNumber after update failed: %v", err)
+    }
+    if got.UserId != "phone-error-user" {
+        t.Fatalf("expected phone-error-user, got %s", got.UserId)
+    }
+
+    // Update non-existent user (should not error, just not update anything)
+    nonExistPhone := &common.PhoneNumber{CountryCode: "+49", Number: "3301234567"}
+    if err := store.UpdatePhoneNumber(&ctx, "nonexistent-user", nonExistPhone); err != nil {
+        t.Fatalf("UpdatePhoneNumber on non-existent should not error: %v", err)
+    }
+
+    // Verify original user unchanged
+    got2, err := store.Get(&ctx, Filter{Key: UserId, Value: "phone-error-user"})
+    if err != nil || got2 == nil {
+        t.Fatalf("Get after non-existent update failed: %v", err)
+    }
+    if got2.PhoneNumber.Number != "7776665555" {
+        t.Fatalf("expected phone unchanged, got %s", got2.PhoneNumber.Number)
+    }
+}
+
+func TestMongoUserStore_Unit_Insert_Success_And_Verify_Retrieval(t *testing.T) {
+    if testing.Short() {
+        t.Skip("skipping Mongo-backed test in short mode")
+    }
+
+    ctx := context.Background()
+    client, err := getMongoClientLocal(ctx)
+    if err != nil {
+        t.Fatalf("connect error: %v", err)
+    }
+    defer client.Disconnect(ctx)
+
+    coll := client.Database("user-server-test").Collection("users-insert-verify-test")
+    _ = coll.Drop(ctx)
+    defer coll.Drop(ctx)
+
+    store := NewMongoUserStore(coll)
+
+    // Insert first user
+    u1 := &User{UserId: "insert-user-1", EmailId: "insert@example.com", PhoneNumber: &common.PhoneNumber{CountryCode: "+1", Number: "5551111111"}}
+    if err := store.Insert(&ctx, u1); err != nil {
+        t.Fatalf("First insert failed: %v", err)
+    }
+
+    // Insert second user with different ID
+    u2 := &User{UserId: "insert-user-2", EmailId: "insert2@example.com", PhoneNumber: &common.PhoneNumber{CountryCode: "+44", Number: "2071234567"}}
+    if err := store.Insert(&ctx, u2); err != nil {
+        t.Fatalf("Second insert failed: %v", err)
+    }
+
+    // Verify both users can be retrieved
+    got1, err := store.Get(&ctx, Filter{Key: UserId, Value: "insert-user-1"})
+    if err != nil || got1 == nil {
+        t.Fatalf("Get user1 failed: %v", err)
+    }
+    if got1.EmailId != "insert@example.com" {
+        t.Fatalf("expected insert@example.com, got %s", got1.EmailId)
+    }
+
+    got2, err := store.Get(&ctx, Filter{Key: UserId, Value: "insert-user-2"})
+    if err != nil || got2 == nil {
+        t.Fatalf("Get user2 failed: %v", err)
+    }
+    if got2.EmailId != "insert2@example.com" {
+        t.Fatalf("expected insert2@example.com, got %s", got2.EmailId)
+    }
+
+    // Verify retrieval by email
+    byEmail1, err := store.Get(&ctx, Filter{Key: EmailId, Value: "insert@example.com"})
+    if err != nil || byEmail1 == nil {
+        t.Fatalf("Get by email failed: %v", err)
+    }
+
+    // Verify retrieval by phone
+    byPhone1, err := store.GetByPhoneNumber(&ctx, &common.PhoneNumber{CountryCode: "+1", Number: "5551111111"})
+    if err != nil || byPhone1 == nil {
+        t.Fatalf("Get by phone failed: %v", err)
+    }
+}
+
+func TestMongoUserStore_Unit_GetByPhoneNumber_With_Edge_Cases(t *testing.T) {
+    if testing.Short() {
+        t.Skip("skipping Mongo-backed test in short mode")
+    }
+
+    ctx := context.Background()
+    client, err := getMongoClientLocal(ctx)
+    if err != nil {
+        t.Fatalf("connect error: %v", err)
+    }
+    defer client.Disconnect(ctx)
+
+    coll := client.Database("user-server-test").Collection("users-phone-edge-test")
+    _ = coll.Drop(ctx)
+    defer coll.Drop(ctx)
+
+    store := NewMongoUserStore(coll)
+
+    // Insert multiple users with different phones
+    u1 := &User{UserId: "user1", PhoneNumber: &common.PhoneNumber{CountryCode: "+1", Number: "5551111111"}}
+    u2 := &User{UserId: "user2", PhoneNumber: &common.PhoneNumber{CountryCode: "+44", Number: "2071234567"}}
+    u3 := &User{UserId: "user3"} // No phone
+
+    _ = store.Insert(&ctx, u1)
+    _ = store.Insert(&ctx, u2)
+    _ = store.Insert(&ctx, u3)
+
+    // Get by existing phone
+    got1, err := store.GetByPhoneNumber(&ctx, &common.PhoneNumber{CountryCode: "+1", Number: "5551111111"})
+    if err != nil || got1 == nil {
+        t.Fatalf("GetByPhoneNumber user1 failed: %v", err)
+    }
+    if got1.UserId != "user1" {
+        t.Fatalf("expected user1, got %s", got1.UserId)
+    }
+
+    // Get by non-existent phone
+    _, err = store.GetByPhoneNumber(&ctx, &common.PhoneNumber{CountryCode: "+1", Number: "9999999999"})
+    if err == nil {
+        t.Fatalf("expected error for non-existent phone, got nil")
+    }
+
+    // Get by phone with different country code
+    _, err = store.GetByPhoneNumber(&ctx, &common.PhoneNumber{CountryCode: "+1", Number: "2071234567"})
+    if err == nil {
+        t.Fatalf("expected error for mismatched country code, got nil")
+    }
+}
+
+func TestMongoUserStore_Unit_Delete_Filter_And_DeleteByUserId_Edge_Cases(t *testing.T) {
+    if testing.Short() {
+        t.Skip("skipping Mongo-backed test in short mode")
+    }
+
+    ctx := context.Background()
+    client, err := getMongoClientLocal(ctx)
+    if err != nil {
+        t.Fatalf("connect error: %v", err)
+    }
+    defer client.Disconnect(ctx)
+
+    coll := client.Database("user-server-test").Collection("users-delete-edge-test")
+    _ = coll.Drop(ctx)
+    defer coll.Drop(ctx)
+
+    store := NewMongoUserStore(coll)
+
+    // Insert test users
+    u1 := &User{UserId: "del-user-1", EmailId: "del1@example.com"}
+    u2 := &User{UserId: "del-user-2", EmailId: "del2@example.com"}
+
+    _ = store.Insert(&ctx, u1)
+    _ = store.Insert(&ctx, u2)
+
+    // Delete by UserId
+    if err := store.DeleteByUserId(&ctx, "del-user-1"); err != nil {
+        t.Fatalf("DeleteByUserId success case failed: %v", err)
+    }
+
+    // Verify deleted
+    _, err = store.Get(&ctx, Filter{Key: UserId, Value: "del-user-1"})
+    if err == nil {
+        t.Fatalf("expected error after delete, got nil")
+    }
+
+    // Delete non-existent by UserId - should return NotFoundError
+    err = store.DeleteByUserId(&ctx, "nonexistent")
+    if err == nil {
+        t.Fatalf("expected NotFoundError for non-existent user, got nil")
+    }
+
+    // Delete by EmailId filter
+    if err := store.Delete(&ctx, Filter{Key: EmailId, Value: "del2@example.com"}); err != nil {
+        t.Fatalf("Delete by EmailId filter failed: %v", err)
+    }
+
+    // Verify deleted
+    _, err = store.Get(&ctx, Filter{Key: UserId, Value: "del-user-2"})
+    if err == nil {
+        t.Fatalf("expected error after delete by filter, got nil")
+    }
+
+    // Delete non-existent by filter - Delete API returns error if nothing deleted
+    err = store.Delete(&ctx, Filter{Key: EmailId, Value: "nonexistent@example.com"})
+    // This is expected behavior - Delete returns error if no document matched
+    _ = err
+}

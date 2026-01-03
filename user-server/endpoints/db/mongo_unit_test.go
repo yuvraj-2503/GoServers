@@ -327,3 +327,154 @@ func TestUrlMongoStore_Unit_Delete_With_MultipleFilters_And_Empty_Collection(t *
         t.Fatalf("expected 1 dev URL remaining, got %d", len(allDev))
     }
 }
+
+func TestUrlMongoStore_Unit_Upsert_Partial_Fields_And_GetAll_Variants(t *testing.T) {
+    if testing.Short() {
+        t.Skip("skipping Mongo-backed test in short mode")
+    }
+
+    ctx := context.Background()
+    client, err := getMongoClientLocal(ctx)
+    if err != nil {
+        t.Fatalf("connect error: %v", err)
+    }
+    defer client.Disconnect(ctx)
+
+    collName := fmt.Sprintf("urls-upsert-partial-test-%d", time.Now().UnixNano())
+    coll := client.Database("user-server-test").Collection(collName)
+    defer coll.Drop(ctx)
+
+    store := NewUrlMongoStore(coll)
+
+    now := time.Now()
+
+    // Insert initial URL
+    u1 := &UrlData{Key: "k1", Env: "prod", Url: "https://api1.example.com", UpdatedAt: &now}
+    if err := store.Upsert(&ctx, []*UrlData{u1}); err != nil {
+        t.Fatalf("Initial upsert failed: %v", err)
+    }
+
+    // Upsert same key with different URL (should update)
+    u1Updated := &UrlData{Key: "k1", Env: "prod", Url: "https://api1-new.example.com", UpdatedAt: &now}
+    if err := store.Upsert(&ctx, []*UrlData{u1Updated}); err != nil {
+        t.Fatalf("Upsert update failed: %v", err)
+    }
+
+    // Verify update
+    got, err := store.Get(&ctx, "k1", "prod")
+    if err != nil || got == nil {
+        t.Fatalf("Get after upsert failed: %v", err)
+    }
+    if got.Url != "https://api1-new.example.com" {
+        t.Fatalf("expected updated URL, got %s", got.Url)
+    }
+
+    // GetAll with multiple records
+    u2 := &UrlData{Key: "k2", Env: "prod", Url: "https://api2.example.com", UpdatedAt: &now}
+    u3 := &UrlData{Key: "k3", Env: "staging", Url: "https://api3-staging.example.com", UpdatedAt: &now}
+    _ = store.Upsert(&ctx, []*UrlData{u2})
+    _ = store.Upsert(&ctx, []*UrlData{u3})
+
+    // GetAll for prod should return 2
+    all, err := store.GetAll(&ctx, "prod")
+    if err != nil {
+        t.Fatalf("GetAll prod failed: %v", err)
+    }
+    if len(all) != 2 {
+        t.Fatalf("expected 2 prod URLs, got %d", len(all))
+    }
+
+    // GetAll for staging should return 1
+    allStaging, err := store.GetAll(&ctx, "staging")
+    if err != nil {
+        t.Fatalf("GetAll staging failed: %v", err)
+    }
+    if len(allStaging) != 1 {
+        t.Fatalf("expected 1 staging URL, got %d", len(allStaging))
+    }
+
+    // GetAll for non-existent env should return empty
+    allNone, err := store.GetAll(&ctx, "nonexistent")
+    if err != nil {
+        t.Fatalf("GetAll nonexistent should not error: %v", err)
+    }
+    if len(allNone) != 0 {
+        t.Fatalf("expected 0 URLs for nonexistent env, got %d", len(allNone))
+    }
+}
+
+func TestUrlMongoStore_Unit_Get_Error_Scenarios_And_Delete_By_Key_Env(t *testing.T) {
+    if testing.Short() {
+        t.Skip("skipping Mongo-backed test in short mode")
+    }
+
+    ctx := context.Background()
+    client, err := getMongoClientLocal(ctx)
+    if err != nil {
+        t.Fatalf("connect error: %v", err)
+    }
+    defer client.Disconnect(ctx)
+
+    collName := fmt.Sprintf("urls-get-delete-test-%d", time.Now().UnixNano())
+    coll := client.Database("user-server-test").Collection(collName)
+    defer coll.Drop(ctx)
+
+    store := NewUrlMongoStore(coll)
+
+    // Get from empty collection - should error
+    _, err = store.Get(&ctx, "nonexistent", "prod")
+    if err == nil {
+        t.Fatalf("Get from empty collection should error")
+    }
+
+    // Insert test data
+    now := time.Now()
+    u1 := &UrlData{Key: "key1", Env: "prod", Url: "https://prod.example.com", UpdatedAt: &now}
+    u2 := &UrlData{Key: "key1", Env: "dev", Url: "https://dev.example.com", UpdatedAt: &now}
+    _ = store.Upsert(&ctx, []*UrlData{u1})
+    _ = store.Upsert(&ctx, []*UrlData{u2})
+
+    // Get same key, different env
+    got1, err := store.Get(&ctx, "key1", "prod")
+    if err != nil || got1 == nil {
+        t.Fatalf("Get key1 prod failed: %v", err)
+    }
+    if got1.Url != "https://prod.example.com" {
+        t.Fatalf("expected prod URL, got %s", got1.Url)
+    }
+
+    got2, err := store.Get(&ctx, "key1", "dev")
+    if err != nil || got2 == nil {
+        t.Fatalf("Get key1 dev failed: %v", err)
+    }
+    if got2.Url != "https://dev.example.com" {
+        t.Fatalf("expected dev URL, got %s", got2.Url)
+    }
+
+    // Get with wrong env - should error
+    _, err = store.Get(&ctx, "key1", "staging")
+    if err == nil {
+        t.Fatalf("Get wrong env should error")
+    }
+
+    // Delete by key and env
+    if err := store.Delete(&ctx, "key1", "prod"); err != nil {
+        t.Fatalf("Delete key1 prod failed: %v", err)
+    }
+
+    // Verify prod deleted but dev still exists
+    _, err = store.Get(&ctx, "key1", "prod")
+    if err == nil {
+        t.Fatalf("expected error after delete, got nil")
+    }
+
+    got3, err := store.Get(&ctx, "key1", "dev")
+    if err != nil || got3 == nil {
+        t.Fatalf("dev should still exist after deleting prod: %v", err)
+    }
+
+    // Delete non-existent - should not error
+    if err := store.Delete(&ctx, "nonexistent", "prod"); err != nil {
+        t.Fatalf("Delete non-existent should not error: %v", err)
+    }
+}

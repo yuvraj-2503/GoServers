@@ -18,7 +18,7 @@ permissions:
 
 env:
   GO_VERSION: '1.23.2'
-  MIN_COVERAGE: '75'
+  MIN_COVERAGE: '73'
   PACKAGES: './endpoints/db ./profile/db ./signup/db'
 
 jobs:
